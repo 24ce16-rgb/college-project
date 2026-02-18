@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Health Map - Integrated Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- STYLES FROM style.css --- */
+        .view-map {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            color: white;
+            text-align: center;
+            background: url("https://images.unsplash.com/photo-1584036561566-baf8f5f1b144") no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+        }
+
+        .view-map header { padding: 30px; animation: fadeIn 1.5s ease-in-out; }
+        .view-map header h1 { font-size: 2.5rem; color: #00f5ff; }
+        .view-map .stats { display: flex; justify-content: center; gap: 20px; padding: 20px; flex-wrap: wrap; }
+        .view-map .card { background: rgba(255, 255, 255, 0.1); padding: 20px 40px; border-radius: 15px; backdrop-filter: blur(10px); transition: 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .view-map .card:hover { transform: translateY(-10px); background: rgba(0, 255, 255, 0.2); }
+        .view-map .card h2 { font-size: 4rem; color: #00ffcc; }
+        .view-map #map { height: 500px; width: 90%; margin: auto; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .view-map .btn { display: inline-block; margin-top: 15px; padding: 10px 20px; background: #00f5ff; color: black; border-radius: 8px; text-decoration: none; font-weight: 700; cursor: pointer; border: none; }
+
+        /* --- STYLES FROM style2.css --- */
+        .view-details { background: linear-gradient(135deg, #e3f2fd, #f5f7fa); color: black; min-height: 100vh; display: none; text-align: left; }
+        .view-details header { display: flex; justify-content: space-between; align-items: center; padding: 25px 8%; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .view-details header h1 { font-size: 1.8rem; color: #0d47a1; }
+        .view-details .btn { padding: 10px 20px; background: #0d47a1; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; cursor: pointer; border: none; }
+        .view-details .stats { display: flex; justify-content: center; gap: 25px; padding: 40px 8%; flex-wrap: wrap; }
+        .view-details .card { background: white; padding: 30px; width: 260px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+        .view-details .card h2 { font-size: 2rem; margin-bottom: 8px; color: #b71c1c; }
+        .view-details .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .view-details .data-table th { background: #0d47a1; color: white; padding: 12px; text-align: left; }
+        .view-details .data-table td { padding: 12px; border-bottom: 1px solid #eee; }
+
+        /* Shared / Helpers */
+        footer { padding: 20px; background: rgba(0,0,0,0.5); color: white; text-align: center; }
+        @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+    </style>
+</head>
+<body>
+
+    <div id="mapView" class="view-map">
+        <header>
+            <button onclick="showDetails()" class="btn">View Detailed Cases →</button>
+            <h1>🌍 Health Map</h1>
+            <p>Real-Time Epidemic Spread Visualizer</p>
+        </header>
+
+        <section class="stats">
+            <div class="card">
+                <h2 id="map-cases">0</h2>
+                <p>Total Cases</p>
+            </div>
+            <div class="card">
+                <h2 id="map-recovered">0</h2>
+                <p>Recovered</p>
+            </div>
+            <div class="card">
+                <h2 id="map-deaths">0</h2>
+                <p>Deaths</p>
+            </div>
+        </section>
+
+        <section class="map-section">
+            <div id="map"></div>
+        </section>
+
+        <footer>
+            <p>© 2026 Health Map | Epidemic Monitoring System</p>
+        </footer>
+    </div>
+
+    <div id="detailsView" class="view-details">
+        <header>
+            <h1>📊 Detailed Epidemic Case Report</h1>
+            <button onclick="showMap()" class="btn">← Back to Map</button>
+        </header>
+
+        <section class="stats">
+            <div class="card"><h2 id="det-totalCases">0</h2><p>Total Cases</p></div>
+            <div class="card"><h2 id="det-activeCases">0</h2><p>Active Cases</p></div>
+            <div class="card"><h2 id="det-growthRate">0%</h2><p>Growth Rate</p></div>
+        </section>
+
+        <section style="width:90%; margin:auto; background: black; padding: 20px; border-radius: 15px;">
+            <canvas id="casesChart"></canvas>
+        </section>
+
+        <section style="width:90%; margin:40px auto;">
+            <h2 style="color: #0d47a1;">Country-wise Breakdown</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Country</th>
+                        <th>Total Cases</th>
+                        <th>Recovered</th>
+                        <th>Deaths</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </section>
+
+        <footer>
+            <p>© 2026 Health Map | Detailed Analytics Dashboard</p>
+        </footer>
+    </div>
+
+    <script>
+        /* --- LOGIC SWITCHER --- */
+        function showDetails() {
+            document.getElementById('mapView').style.display = 'none';
+            document.getElementById('detailsView').style.display = 'block';
+            initDetails(); // Load details data/chart when view changes
+        }
+
+        function showMap() {
+            document.getElementById('detailsView').style.display = 'none';
+            document.getElementById('mapView').style.display = 'block';
+        }
+
+        /* --- SCRIPT FROM script.js (Map Logic) --- */
+        var map = L.map('map').setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        const epidemicData = [
+            { location: "India", lat: 20.5937, lng: 78.9629, cases: 500000 },
+            { location: "USA", lat: 37.0902, lng: -95.7129, cases: 800000 },
+            { location: "Brazil", lat: -14.2350, lng: -51.9253, cases: 300000 }
+        ];
+
+        let mapTotalCases = 0;
+        epidemicData.forEach(data => {
+            mapTotalCases += data.cases;
+            L.circle([data.lat, data.lng], {
+                color: 'red', fillColor: '#f03', fillOpacity: 0.5, radius: data.cases / 10
+            }).addTo(map).bindPopup(`<b>${data.location}</b><br>Cases: ${data.cases}`);
+        });
+
+        document.getElementById("map-cases").innerText = mapTotalCases.toLocaleString();
+        document.getElementById("map-recovered").innerText = (mapTotalCases * 0.7).toLocaleString();
+        document.getElementById("map-deaths").innerText = (mapTotalCases * 0.05).toLocaleString();
+
+        /* --- SCRIPT FROM details.js (Details Logic) --- */
+        let chartInstance = null;
+
+        function initDetails() {
+            const data = [
+                { country: "India", cases: 500000, recovered: 420000, deaths: 15000 },
+                { country: "USA", cases: 800000, recovered: 600000, deaths: 25000 },
+                { country: "Brazil", cases: 300000, recovered: 250000, deaths: 10000 },
+                { country: "UK", cases: 200000, recovered: 170000, deaths: 8000 }
+            ];
+
+            let detTotal = 0;
+            let detActive = 0;
+            const tableBody = document.getElementById("tableBody");
+            tableBody.innerHTML = ""; // Clear existing
+
+            data.forEach(item => {
+                detTotal += item.cases;
+                detActive += (item.cases - item.recovered - item.deaths);
+                tableBody.innerHTML += `<tr><td>${item.country}</td><td>${item.cases.toLocaleString()}</td><td>${item.recovered.toLocaleString()}</td><td>${item.deaths.toLocaleString()}</td></tr>`;
+            });
+
+            document.getElementById("det-totalCases").innerText = detTotal.toLocaleString();
+            document.getElementById("det-activeCases").innerText = detActive.toLocaleString();
+            document.getElementById("det-growthRate").innerText = "12%";
+
+            // Chart logic
+            if (chartInstance) chartInstance.destroy();
+            const ctx = document.getElementById("casesChart").getContext("2d");
+            chartInstance = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: data.map(d => d.country),
+                    datasets: [{ label: "Total Cases", data: data.map(d => d.cases), backgroundColor: "rgba(0,255,255,0.6)" }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: "white" } } },
+                    scales: { x: { ticks: { color: "white" } }, y: { ticks: { color: "white" } } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
